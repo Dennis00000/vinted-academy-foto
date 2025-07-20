@@ -20,7 +20,7 @@ function FolderStarIcon() {
   );
 }
 
-export default function Header({ darkMode, onToggleDarkMode, showFavorites, onToggleFavoritesView }) {
+export default function Header({ darkMode, onToggleDarkMode, showFavorites, onToggleFavoritesView, favoritesCount }) {
   return (
     <header className="header">
       <div className="header-inner">
@@ -32,6 +32,9 @@ export default function Header({ darkMode, onToggleDarkMode, showFavorites, onTo
             aria-label="Show favorites"
           >
             <FolderStarIcon />
+            {favoritesCount > 0 && (
+              <span className="favorites-count">{favoritesCount}</span>
+            )}
           </button>
           <button
             className="darkmode-toggle-btn"

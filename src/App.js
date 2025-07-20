@@ -2,7 +2,9 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Header from './components/Header';
 import HeroSection from './components/HeroSection';
 import ImageGrid from './components/ImageGrid';
+import FavoritesPage from './components/FavoritesPage';
 import { fetchCuratedPhotos, getRandomPage } from './utils/pexelsApi';
+import { loadFavorites, saveFavorites } from './utils/favoritesStorage';
 import './App.css';
 
 const IMAGES_PER_PAGE = 15;
@@ -13,10 +15,9 @@ function App() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [favoritedImageIds, setFavoritedImageIds] = useState(() => {
-    const saved = localStorage.getItem('favorites');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Store favorite images as objects
+  const [favoriteImages, setFavoriteImages] = useState(loadFavorites);
+  const favoritedImageIds = favoriteImages.map(img => img.id);
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
     return saved ? JSON.parse(saved) : false;
@@ -75,9 +76,10 @@ function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isLoading, hasMore, showFavorites, loadImages]);
 
+  // Sync favoriteImages with localStorage
   useEffect(() => {
-    localStorage.setItem('favorites', JSON.stringify(favoritedImageIds));
-  }, [favoritedImageIds]);
+    saveFavorites(favoriteImages);
+  }, [favoriteImages]);
 
   useEffect(() => {
     const onScroll = () => {
@@ -91,10 +93,21 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Add/remove full image objects to favorites
   const handleToggleFavorite = id => {
-    setFavoritedImageIds(favs =>
-      favs.includes(id) ? favs.filter(f => f !== id) : [...favs, id]
-    );
+    setFavoriteImages(favs => {
+      const isFav = favs.some(img => img.id === id);
+      if (isFav) {
+        return favs.filter(img => img.id !== id);
+      } else {
+        const img = images.find(img => img.id === id);
+        if (img) {
+          return [...favs, img];
+        } else {
+          return favs;
+        }
+      }
+    });
   };
 
   const handleToggleDarkMode = () => setDarkMode(dm => !dm);
@@ -105,10 +118,6 @@ function App() {
     loadImages(true, true);
   };
 
-  const displayedImages = showFavorites
-    ? images.filter(img => favoritedImageIds.includes(img.id))
-    : images;
-
   return (
     <div className="App">
       <Header
@@ -116,36 +125,40 @@ function App() {
         onToggleDarkMode={handleToggleDarkMode}
         showFavorites={showFavorites}
         onToggleFavoritesView={handleToggleFavoritesView}
+        favoritesCount={favoriteImages.length}
       />
-      <HeroSection />
-      <div style={{ display: 'flex', justifyContent: 'center', margin: '1.5rem 0 0 0' }}>
-        <button className="reload-btn" onClick={handleReloadImages} disabled={isLoading}>
-          {isLoading ? 'Loading...' : 'Reload Images'}
-        </button>
-      </div>
-      {displayedImages.length === 0 && !showFavorites && (
-        <div className="end-message">No images to display. Please try again later.</div>
-      )}
-      {error && <div className="end-message" style={{ color: '#e53935' }}>{error}</div>}
-      {displayedImages.length > 0 && (
-        <ImageGrid
-          images={displayedImages}
+      {showFavorites ? (
+        <FavoritesPage
+          images={favoriteImages}
           favoritedImageIds={favoritedImageIds}
           onToggleFavorite={handleToggleFavorite}
+          onBackToGallery={handleToggleFavoritesView}
         />
-      )}
-      {isLoading && !showFavorites && (
-        <div className="loading loading-spinner">
-          <span className="spinner" /> Loading...
-        </div>
-      )}
-      {showFavorites && displayedImages.length === 0 && (
-        <div className="end-message">
-          No favorites yet. Click the heart on any image!<br />
-          <button className="reload-btn" style={{marginTop: '1.2rem'}} onClick={handleToggleFavoritesView}>
-            Back to Gallery
-          </button>
-        </div>
+      ) : (
+        <>
+          <HeroSection />
+          <div style={{ display: 'flex', justifyContent: 'center', margin: '1.5rem 0 0 0' }}>
+            <button className="reload-btn" onClick={handleReloadImages} disabled={isLoading}>
+              {isLoading ? 'Loading...' : 'Reload Images'}
+            </button>
+          </div>
+          {images.length === 0 && (
+            <div className="end-message">No images to display. Please try again later.</div>
+          )}
+          {error && <div className="end-message" style={{ color: '#e53935' }}>{error}</div>}
+          {images.length > 0 && (
+            <ImageGrid
+              images={images}
+              favoritedImageIds={favoritedImageIds}
+              onToggleFavorite={handleToggleFavorite}
+            />
+          )}
+          {isLoading && (
+            <div className="loading loading-spinner">
+              <span className="spinner" /> Loading...
+            </div>
+          )}
+        </>
       )}
       {showScrollTop && (
         <button
